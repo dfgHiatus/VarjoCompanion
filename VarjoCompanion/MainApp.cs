@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO.MemoryMappedFiles;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
+using VarjoInterface;
 
 namespace VarjoCompanion
 {
@@ -12,33 +9,31 @@ namespace VarjoCompanion
     {
         static void Main(string[] args)
         {
-            IntPtr session = VarjoEyeTracking.Init();
-            
-            if (!VarjoEyeTracking.IsGazeAllowed())
+            VarjoApp.SessionInit();
+
+            if (!VarjoApp.IsGazeAllowed())
             {
                 Console.WriteLine("Gaze tracking is not allowed! Please enable it in the Varjo Base!");
                 return;
             }
 
-            VarjoEyeTracking.GazeInit();
-            VarjoEyeTracking.SyncProperties();
+            VarjoApp.GazeInit();
+            VarjoApp.SyncProperties();
 
-            VarjoEyeTracking.GazeData gazeData = new VarjoEyeTracking.GazeData();
-
-            using (var memMapFile = MemoryMappedFile.CreateNew("VarjoEyeTracking", Marshal.SizeOf(gazeData)))
+            using (var memMapFile = MemoryMappedFile.CreateNew("VarjoApp", Marshal.SizeOf(VarjoApp.varjoData)))
             {
                 using (var accessor = memMapFile.CreateViewAccessor())
                 {
                     Console.WriteLine("Eye tracking session has started!");
                     while (!(Console.KeyAvailable && Console.ReadKey(true).Key == ConsoleKey.Enter))
                     {
-                        gazeData = VarjoEyeTracking.GetGaze();
-                        accessor.Write(0, ref gazeData);
+                        VarjoApp.GetGazeData();
+                        accessor.Write(0, ref VarjoApp.varjoData);
                     }
                 }
             }
 
-            VarjoEyeTracking.varjo_SessionShutDown(session);
+            VarjoApp.Shutdown();
         }
     }
 }

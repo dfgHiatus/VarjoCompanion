@@ -1,13 +1,21 @@
 ﻿using System;
-
-using System.Runtime.InteropServices;
 using System.Collections.Generic;
-using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
-namespace VarjoCompanion
+namespace VarjoInterface
 {
-    public class VarjoEyeTracking
+    public static class VarjoApp
     {
+        public static VarjoData varjoData;
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct VarjoData
+        {
+            public GazeData gazeData;
+            public EyeMeasurements eyeData;
+        }
+
         [StructLayout(LayoutKind.Sequential)]
         public struct Vector
         {
@@ -39,10 +47,6 @@ namespace VarjoCompanion
             Tracked = 3
         }
 
-        public static int GetError()
-        {
-            return varjo_GetError(session);
-        }
 
         [StructLayout(LayoutKind.Sequential)]
         public struct GazeData
@@ -63,52 +67,25 @@ namespace VarjoCompanion
 
 
         [StructLayout(LayoutKind.Sequential)]
-        private struct GazeCalibrationParameter
+        public struct EyeMeasurements
         {
-            [MarshalAs(UnmanagedType.LPStr)] public string key;
-            [MarshalAs(UnmanagedType.LPStr)] public string value;
+            public long frameNumber;                    //!< Frame number, increases monotonically.
+            public long captureTime;                    //!< Varjo time when this data was captured, see varjo_GetCurrentTime()
+            public float interPupillaryDistanceInMM;    //!< Estimated IPD in millimeters
+            public float leftPupilIrisDiameterRatio;    //!< Ratio between left pupil and left iris.
+            public float rightPupilIrisDiameterRatio;   //!< Ratio between right pupil and right iris.
+            public float leftPupilDiameterInMM;         //!< Left pupil diameter in mm
+            public float rightPupilDiameterInMM;        //!< Right pupil diameter in mm
+            public float leftIrisDiameterInMM;          //!< Left iris diameter in mm
+            public float rightIrisDiameterInMM;         //!< Right iris diameter in mm
         }
 
-        public enum GazeCalibrationMode
-        {
-            Legacy,
-            Fast
-        };
-
-        public enum GazeOutputFilterType
-        {
-            None,
-            Standard
-        }
-
-        public enum GazeOutputFrequency
-        {
-            MaximumSupported,
-            Frequency100Hz,
-            Frequency200Hz
-        }
-
-        public enum GazeEyeCalibrationQuality
-        {
-            Invalid = 0,
-            Low = 1,
-            Medium = 2,
-            High = 3
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        public struct GazeCalibrationQuality
-        {
-            public GazeEyeCalibrationQuality left;
-            public GazeEyeCalibrationQuality right;
-        }
-
-        static IntPtr session;
+        public static IntPtr session;
         public static IntPtr GetVarjoSession()
         {
             return session;
         }
-        public static IntPtr Init()
+        public static IntPtr SessionInit()
         {
             session = varjo_SessionInit();
             return session;
@@ -155,49 +132,105 @@ namespace VarjoCompanion
         {
             return (GazeEyeCalibrationQuality)varjo_GetPropertyInt(session, 0xA005);
         }
-        public static GazeData GetGaze()
+        public static void GetGaze()
         {
-            return varjo_GetGaze(session);
+            varjoData.gazeData = varjo_GetGaze(session);
         }
 
+        public static bool GetGazeData()
+        {
+            return varjo_GetGazeData(session, out varjoData.gazeData, out varjoData.eyeData);
+        }
+
+        public static void Shutdown()
+        {
+            varjo_SessionShutDown(session);
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct GazeCalibrationParameter
+        {
+            [MarshalAs(UnmanagedType.LPStr)] public string key;
+            [MarshalAs(UnmanagedType.LPStr)] public string value;
+        }
+
+        public enum GazeCalibrationMode
+        {
+            Legacy,
+            Fast
+        };
+
+        public enum GazeOutputFilterType
+        {
+            None,
+            Standard
+        }
+
+        public enum GazeOutputFrequency
+        {
+            MaximumSupported,
+            Frequency100Hz,
+            Frequency200Hz
+        }
+
+        public enum GazeEyeCalibrationQuality
+        {
+            Invalid = 0,
+            Low = 1,
+            Medium = 2,
+            High = 3
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct GazeCalibrationQuality
+        {
+            public GazeEyeCalibrationQuality left;
+            public GazeEyeCalibrationQuality right;
+        }
+
+        [DllImport("kernel32", CharSet = CharSet.Unicode, ExactSpelling = false, SetLastError = true)]
+        private static extern IntPtr LoadLibrary(string lpFileName);
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern bool varjo_IsAvailable();
+        private static extern bool varjo_IsAvailable();
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern IntPtr varjo_SessionInit();
+        private static extern IntPtr varjo_SessionInit();
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern void varjo_SessionShutDown(IntPtr session);
+        private static extern void varjo_SessionShutDown(IntPtr session);
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern void varjo_GazeInit(IntPtr session);
+        private static extern void varjo_GazeInit(IntPtr session);
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern int varjo_GetError(IntPtr session);
+        private static extern int varjo_GetError(IntPtr session);
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern string varjo_GetErrorDesc(int errorCode);
+        private static extern string varjo_GetErrorDesc(int errorCode);
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern bool varjo_IsGazeAllowed(IntPtr session);
+        private static extern bool varjo_IsGazeAllowed(IntPtr session);
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern bool varjo_IsGazeCalibrated(IntPtr session);
+        private static extern bool varjo_IsGazeCalibrated(IntPtr session);
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern GazeData varjo_GetGaze(IntPtr session);
+        private static extern GazeData varjo_GetGaze(IntPtr session);
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern void varjo_RequestGazeCalibration(IntPtr session);
+        private static extern bool varjo_GetGazeData(IntPtr session, out GazeData gaze, out EyeMeasurements eyeMeasurements);
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern bool varjo_GetPropertyBool(IntPtr session, int propertyKey);
+        private static extern void varjo_RequestGazeCalibration(IntPtr session);
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern int varjo_GetPropertyInt(IntPtr session, int propertyKey);
+        private static extern bool varjo_GetPropertyBool(IntPtr session, int propertyKey);
 
         [DllImport("VarjoLib", CharSet = CharSet.Auto)]
-        public static extern void varjo_SyncProperties(IntPtr session);
+        private static extern int varjo_GetPropertyInt(IntPtr session, int propertyKey);
+
+        [DllImport("VarjoLib", CharSet = CharSet.Auto)]
+        private static extern void varjo_SyncProperties(IntPtr session);
     }
 }
