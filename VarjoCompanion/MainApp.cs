@@ -20,7 +20,7 @@ namespace VarjoCompanion
             VarjoApp.GazeInit();
             VarjoApp.SyncProperties();
 
-            using (var memMapFile = MemoryMappedFile.CreateNew("VarjoApp", Marshal.SizeOf(VarjoApp.varjoData)))
+            using (var memMapFile = MemoryMappedFile.CreateNew("VarjoEyeTracking", Marshal.SizeOf(VarjoApp.varjoData)))
             {
                 using (var accessor = memMapFile.CreateViewAccessor())
                 {
